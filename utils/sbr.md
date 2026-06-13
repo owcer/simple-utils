@@ -1,3 +1,89 @@
+# sbr v1.5
+
+Hello, I have created a ~~new~~ function called sbr, which lets you set blocks reliably and infinitely. This should be far better than using setBlock, setBlockRect, or setBlockWalls. It can now clone blocks (and block data of important blocks) and work with unloaded chunks. This now also supports setting block data, and you just need to call sbr.tick() from within your tick callback somewhere for easy integration.
+
+Go to this pastebin for world code:
+Licensable under CC0 - no credit required
+
+P.S. handles different amounts of array nesting automagically
+also sbr stands for "**S**et **B**lock **R**eliable" or "**S**et **B**lock **R**ect"
+and ior stands for "**I**terate **O**ver **R**ange"
+
+- sbr.free() to check if the queues are currently free
+- sbr.kill() to immediately kill all sbr tasks
+- you can use pass a task in the format `x,y,z,object` or `[x,y,z],object` to set block data
+
+---
+to test, make a flat world and put these in separate code blocks:
+```javascript
+sbr([
+[19,2,6],[40,50,30],"Maple Wood Planks",true,true
+])
+```
+```javascript
+sbr([19,2,6],[40,50,30],"Ice")
+```
+```javascript
+sbr(thisPos,"Maple Log")
+```
+```javascript
+sbr(18,1,5,"Stone")
+```
+```javascript
+sbr([[18,1,5],"Pine Plank"]) //intentionally incorrect name to show error logging
+```
+```javascript
+let [x,y,z] = thisPos
+sbr([[x+1,y,z+1],[x+6,y+5,z+6],[x+11,y,z+11],[x+16,y+5,z+16]]) //cloning section from one place to another
+//to test this one, place a code block, then build something to the positive x positive z direction of it (within 5 blocks), then run the code block.
+```
+```javascript
+let [x,y,z] = thisPos
+sbr([x,y-1,z,"Board"],[x,y-1,z,{persisted:{shared:{text:"Hello\nWorld"}}}]) //cloning section from one place to another
+//to test this one, place a code block, then build something to the positive x positive z direction of it (within 5 blocks), then run the code block.
+```
+
+---
+
+ior is a new addition to sbr in v1.5:
+
+`sbr.ior.free()` returns whether ior is currently running (boolean, i.e., true or false)  
+`sbr.ior.kill()` stops all ior operations and clears the stack, returns undefined  
+`sbr.ior(callback,start,end,increment)` where `callback` is a function, runs the callback over the range start to end, with the specified increment. Works backwards too, and for the python people, the arguments are basically a superset of the python range function  
+`sbr.ior.levels(callback,[range1,range2,...]` runs ior for a multidimensional range
+
+Examples:
+```js
+sbr.ior.levels(pos=>api.setBlock(pos,Math.random()-0.2>0?"Stone":"Coal Ore"),[[5,10],[5,15],[5,20]])
+```
+```js
+sbr.ior(api.log,10)
+```
+```js
+//m=magnitude
+let getY = (x,z,m) => (Math.sin(x/m)+Math.sin(z/m))*m/4
+sbr.ior.levels(([x,z])=>{
+    let y = Math.floor(getY(x+3,z+2,11)+getY(x,z,8)+getY(x-3,z-3,5)*getY(x-2,z-2,3)+20)
+    api.setBlock(x,y,z,"Grass Block")
+    api.setBlockRect([x,y-3,z],[x,y-1,z],"Dirt")
+    api.setBlockRect([x,4,z],[x,y-4,z],"Stone")
+    return 10
+},[[35,134],[5,104]])
+```
+
+---
+
+sbr v1.5 (latest, recommended)
+```js
+/*sbr by Ocelote, licensable under CC0*/(sbr=function(...e){e.length>0&&sbr.rawInputQueue.push(e)}).rawInputQueue=[],sbr.buildQueue=[],sbr.rateLimitCooldown=0,sbr.SPECIAL_BLOCK_IDS=new Set([204,205,206,207,952,953,954,955,1291,1292,1293,1294,1510,2088,2089,2090,2091]),sbr.MAX_RECT_VOLUME=360,sbr.TICK_BUDGET=250,sbr.COST_SCAN_BLOCK=.5,sbr.COST_SCAN_DATA=.7,sbr.COST_BUILD_RECT=10,sbr.COST_BUILD_DATA=1,sbr.COST_SPLIT_RECT=2,sbr.COST_CHUNK_CHECK=8,sbr.free=function(){return 0===sbr.rawInputQueue.length&&0===sbr.buildQueue.length&&0===sbr.ior.free()},sbr.kill=function(){sbr.rawInputQueue=[],sbr.buildQueue=[],sbr.ior.kill()},sbr.getVol=function(e,t){let l=[t[0]-e[0]+1,t[1]-e[1]+1,t[2]-e[2]+1];return{dims:l,vol:l[0]*l[1]*l[2]}},sbr.deconstructWalls=function(e){let[t,l,u,n,$]=e,s=[],i=Math.min(t[0],l[0]),o=Math.min(t[1],l[1]),a=Math.min(t[2],l[2]),r=Math.max(t[0],l[0]),c=Math.max(t[1],l[1]),_=Math.max(t[2],l[2]);n&&s.push([[i,o,a],[r,o,_],u]),$&&s.push([[i,c,a],[r,c,_],u]),s.push([[i,o,a],[i,c,_],u]),s.push([[r,o,a],[r,c,_],u]);let C=n?o+1:o,d=$?c-1:c;return C<=d&&i+1<=r-1&&(s.push([[i+1,C,a],[r-1,d,a],u]),s.push([[i+1,C,_],[r-1,d,_],u])),s},sbr.checkAndLoadChunks=function(e,t){let l=[Math.min(e[0],t[0]),Math.min(e[1],t[1]),Math.min(e[2],t[2])],u=[Math.max(e[0],t[0]),Math.max(e[1],t[1]),Math.max(e[2],t[2])],n=!0;for(let $=l[0];$<=u[0];$+=32)for(let s=l[1];s<=u[1];s+=32)for(let i=l[2];i<=u[2];i+=32)api.isBlockInLoadedChunk($,s,i)||(api.getBlockId($,s,i),n=!1);return n},sbr.getTaskRange=function(e){return e?"gclone"===e[0]||"rect_with_data"===e[0]?[e[1],e[2]]:3===e.length&&Array.isArray(e[0])?[e[0],e[1]]:2===e.length&&Array.isArray(e[0])?[e[0],e[0]]:[e.slice(0,3),e.slice(0,3)]:[[0,0,0],[0,0,0]]},sbr.tick=function(){if(sbr.rateLimitCooldown>0){sbr.rateLimitCooldown--;return}if(0===sbr.rawInputQueue.length&&0===sbr.buildQueue.length){sbr.ior.tick();return}let e=0;for(;sbr.rawInputQueue.length>0&&e<50;){e++;let t=sbr.rawInputQueue.shift();for(;1===t.length&&Array.isArray(t[0]);)t=t[0];t.length>0&&(!Array.isArray(t[0])||Array.isArray(t[0])&&!Array.isArray(t[0][0]))&&(t=[t]);for(let l=0;l<t.length;l++){let u=t[l];if(u&&Array.isArray(u)){if(5===u.length&&"boolean"==typeof u[3]){let n=sbr.deconstructWalls(u);t.splice(l,1,...n),l--}else 4===u.length&&u.every(e=>Array.isArray(e))?sbr.buildQueue.push(["gclone",...u,{scanPos:null,run:null}]):sbr.buildQueue.push(u)}}}let $=sbr.TICK_BUDGET,s=0;for(;$>0&&sbr.buildQueue.length>0&&s<1e3;){s++;let i=sbr.buildQueue[0],[o,a]=sbr.getTaskRange(i);if(!sbr.checkAndLoadChunks(o,a)){$-=sbr.COST_CHUNK_CHECK;for(let r=1;r<Math.min(sbr.buildQueue.length,15)&&$>=sbr.COST_CHUNK_CHECK;r++){let[c,_]=sbr.getTaskRange(sbr.buildQueue[r]);sbr.checkAndLoadChunks(c,_),$-=sbr.COST_CHUNK_CHECK}break}try{if("gclone"===i[0]){let[C,d,f,h,T,g]=i,k=[Math.min(d[0],f[0]),Math.min(d[1],f[1]),Math.min(d[2],f[2])],A=[Math.max(d[0],f[0]),Math.max(d[1],f[1]),Math.max(d[2],f[2])],m=[A[0]-k[0]+1,A[1]-k[1]+1,A[2]-k[2]+1],b=[h[0]-d[0],h[1]-d[1],h[2]-d[2]];null===g.scanPos&&(g.scanPos=[0,0,0],g.run={startPos:[0,0,0],blockType:api.getBlockId(k[0],k[1],k[2])});let p=!1;for(;$>=sbr.COST_SCAN_BLOCK;){$-=sbr.COST_SCAN_BLOCK;let[S,B,I]=g.scanPos,L=api.getBlockId(k[0]+S,k[1]+B,k[2]+I);if(L!==g.run.blockType||S===m[0]-1){let O=g.run.startPos,Q=L!==g.run.blockType?S-1:S,D=g.run.blockType;if(D&&0!==D){let y=[k[0]+O[0]+b[0],k[1]+B+b[1],k[2]+I+b[2]],P=[k[0]+Q+b[0],k[1]+B+b[1],k[2]+I+b[2]];if(sbr.SPECIAL_BLOCK_IDS.has(D)){let U=[];for(let E=O[0];E<=Q&&$>=sbr.COST_SCAN_DATA;E++)$-=sbr.COST_SCAN_DATA,U.push(api.getBlockData(k[0]+E,k[1]+B,k[2]+I));sbr.buildQueue.splice(1,0,["rect_with_data",y,P,String(D),U,0])}else sbr.buildQueue.splice(1,0,[y,P,String(D)])}g.run={startPos:[S,B,I],blockType:L}}if(g.scanPos[0]++,g.scanPos[0]>=m[0]&&(g.scanPos[0]=0,g.scanPos[1]++,g.scanPos[1]>=m[1]&&(g.scanPos[1]=0,g.scanPos[2]++),g.scanPos[2]<m[2]&&(g.run={startPos:[...g.scanPos],blockType:api.getBlockId(k[0],k[1]+g.scanPos[1],k[2]+g.scanPos[2])})),g.scanPos[2]>=m[2]){p=!0;break}}p&&sbr.buildQueue.shift()}else if("rect_with_data"===i[0]){let[w,K,x,R,N,H]=i;0===H&&(api.setBlockRect(K,x,R),$-=sbr.COST_BUILD_RECT);let v=H;for(;$>=sbr.COST_BUILD_DATA&&v<N.length;)$-=sbr.COST_BUILD_DATA,null!==N[v]&&api.setBlockData(K[0]+v,K[1],K[2],N[v]),v++;v>=N.length?sbr.buildQueue.shift():i[5]=v}else if(3===i.length&&Array.isArray(i[0])){let[M,V,G]=i,W=[Math.min(M[0],V[0]),Math.min(M[1],V[1]),Math.min(M[2],V[2])],X=[Math.max(M[0],V[0]),Math.max(M[1],V[1]),Math.max(M[2],V[2])],{dims:j,vol:q}=sbr.getVol(W,X);if(q>sbr.MAX_RECT_VOLUME){let z=j.indexOf(Math.max(...j)),F=W[z]+Math.floor(j[z]/2)-1,J=[...X];J[z]=F;let Y=[...W];Y[z]=F+1,sbr.buildQueue.splice(0,1,[W,J,G],[Y,X,G]),$-=sbr.COST_SPLIT_RECT}else api.setBlockRect(W,X,String(G)),sbr.buildQueue.shift(),$-=sbr.COST_BUILD_RECT}else if(2===i.length&&Array.isArray(i[0]))api.setBlockData(i[0][0],i[0][1],i[0][2],i[1]),sbr.buildQueue.shift(),$-=sbr.COST_BUILD_DATA;else if(4!==i.length||Array.isArray(i[0]))sbr.buildQueue.shift();else{let Z=i[3];"object"==typeof Z&&null!==Z?(api.setBlockData(i[0],i[1],i[2],Z),$-=sbr.COST_BUILD_DATA):(api.setBlock(i[0],i[1],i[2],String(Z)),$-=sbr.COST_BUILD_RECT/10),sbr.buildQueue.shift()}}catch(ee){let et=ee.message?ee.message.toLowerCase():"";if(et.includes("rate limit"))sbr.rateLimitCooldown=5;else if(et.includes("interrupted"))break;else api.log("sbr error: "+ee.message),sbr.buildQueue.shift()}}};{let e=(t,l,u,n)=>{("number"!=typeof n||isNaN(n))&&(n=1),("number"!=typeof l||isNaN(l))&&(l=0),("number"!=typeof u||isNaN(u))&&(u=l,l=0),n=Math.abs(n)*Math.sign(u-l),e.stack.push({cb:t,start:l,end:u,inc:n,count:0})};e.stack=[],e.tickBudget=100,e.defaultBudgetUsed=1,e.free=()=>!e.stack.length,e.kill=()=>void(e.stack=[]),e.tick=()=>{let t=e.tickBudget;for(;t>0&&e.stack.length>0;){let l=e.stack[e.stack.length-1],u=l.count*l.inc+l.start;(l.inc>0?u<l.end:u>l.end)?(t-=l.cb(u)??e.defaultBudgetUsed,l.count++):e.stack.pop()}},e.levels=(t,l)=>{let u=t;for(let n=0;n<l.length;n++){let $=u,[s,i,o]=l[l.length-1-n];u=t=>e(e=>$([...t,e]),s,i,o)}u([])},sbr.ior=e}
+
+//use like this:
+tick=()=>{
+sbr.tick()
+//rest of you code
+}
+```
+
 sbr v1.4
 ```js
 /*sbr by Ocelote, licensable under CC0*/(sbr=function(...e){e.length>0&&sbr.rawInputQueue.push(e)}).rawInputQueue=[],sbr.buildQueue=[],sbr.rateLimitCooldown=0,sbr.SPECIAL_BLOCK_IDS=new Set([204,205,206,207,952,953,954,955,1291,1292,1293,1294,1510,2088,2089,2090,2091]),sbr.MAX_RECT_VOLUME=360,sbr.TICK_BUDGET=250,sbr.COST_SCAN_BLOCK=.5,sbr.COST_SCAN_DATA=.7,sbr.COST_BUILD_RECT=10,sbr.COST_BUILD_DATA=1,sbr.COST_SPLIT_RECT=2,sbr.COST_CHUNK_CHECK=8,sbr.free=function(){return 0===sbr.rawInputQueue.length&&0===sbr.buildQueue.length},sbr.kill=function(){sbr.rawInputQueue=[],sbr.buildQueue=[]},sbr.getVol=function(e,t){let l=[t[0]-e[0]+1,t[1]-e[1]+1,t[2]-e[2]+1];return{dims:l,vol:l[0]*l[1]*l[2]}},sbr.deconstructWalls=function(e){let[t,l,$,u,s]=e,n=[],i=Math.min(t[0],l[0]),o=Math.min(t[1],l[1]),a=Math.min(t[2],l[2]),r=Math.max(t[0],l[0]),_=Math.max(t[1],l[1]),c=Math.max(t[2],l[2]);u&&n.push([[i,o,a],[r,o,c],$]),s&&n.push([[i,_,a],[r,_,c],$]),n.push([[i,o,a],[i,_,c],$]),n.push([[r,o,a],[r,_,c],$]);let C=u?o+1:o,T=s?_-1:_;return C<=T&&i+1<=r-1&&(n.push([[i+1,C,a],[r-1,T,a],$]),n.push([[i+1,C,c],[r-1,T,c],$])),n},sbr.checkAndLoadChunks=function(e,t){let l=[Math.min(e[0],t[0]),Math.min(e[1],t[1]),Math.min(e[2],t[2])],$=[Math.max(e[0],t[0]),Math.max(e[1],t[1]),Math.max(e[2],t[2])],u=!0;for(let s=l[0];s<=$[0];s+=32)for(let n=l[1];n<=$[1];n+=32)for(let i=l[2];i<=$[2];i+=32)api.isBlockInLoadedChunk(s,n,i)||(api.getBlockId(s,n,i),u=!1);return u},sbr.getTaskRange=function(e){return e?"gclone"===e[0]||"rect_with_data"===e[0]?[e[1],e[2]]:3===e.length&&Array.isArray(e[0])?[e[0],e[1]]:2===e.length&&Array.isArray(e[0])?[e[0],e[0]]:[e.slice(0,3),e.slice(0,3)]:[[0,0,0],[0,0,0]]},sbr.tick=function(){if(sbr.rateLimitCooldown>0){sbr.rateLimitCooldown--;return}let e=0;for(;sbr.rawInputQueue.length>0&&e<50;){e++;let t=sbr.rawInputQueue.shift();for(;1===t.length&&Array.isArray(t[0]);)t=t[0];t.length>0&&(!Array.isArray(t[0])||Array.isArray(t[0])&&!Array.isArray(t[0][0]))&&(t=[t]);for(let l=0;l<t.length;l++){let $=t[l];if($&&Array.isArray($)){if(5===$.length&&"boolean"==typeof $[3]){let u=sbr.deconstructWalls($);t.splice(l,1,...u),l--}else 4===$.length&&$.every(e=>Array.isArray(e))?sbr.buildQueue.push(["gclone",...$,{scanPos:null,run:null}]):sbr.buildQueue.push($)}}}let s=sbr.TICK_BUDGET,n=0;for(;s>0&&sbr.buildQueue.length>0&&n<1e3;){n++;let i=sbr.buildQueue[0],[o,a]=sbr.getTaskRange(i);if(!sbr.checkAndLoadChunks(o,a)){s-=sbr.COST_CHUNK_CHECK;for(let r=1;r<Math.min(sbr.buildQueue.length,15)&&s>=sbr.COST_CHUNK_CHECK;r++){let[_,c]=sbr.getTaskRange(sbr.buildQueue[r]);sbr.checkAndLoadChunks(_,c),s-=sbr.COST_CHUNK_CHECK}break}try{if("gclone"===i[0]){let[C,T,f,h,d,A]=i,g=[Math.min(T[0],f[0]),Math.min(T[1],f[1]),Math.min(T[2],f[2])],m=[Math.max(T[0],f[0]),Math.max(T[1],f[1]),Math.max(T[2],f[2])],k=[m[0]-g[0]+1,m[1]-g[1]+1,m[2]-g[2]+1],S=[h[0]-T[0],h[1]-T[1],h[2]-T[2]];null===A.scanPos&&(A.scanPos=[0,0,0],A.run={startPos:[0,0,0],blockType:api.getBlockId(g[0],g[1],g[2])});let b=!1;for(;s>=sbr.COST_SCAN_BLOCK;){s-=sbr.COST_SCAN_BLOCK;let[p,L,O]=A.scanPos,B=api.getBlockId(g[0]+p,g[1]+L,g[2]+O);if(B!==A.run.blockType||p===k[0]-1){let I=A.run.startPos,D=B!==A.run.blockType?p-1:p,Q=A.run.blockType;if(Q&&0!==Q){let P=[g[0]+I[0]+S[0],g[1]+L+S[1],g[2]+O+S[2]],y=[g[0]+D+S[0],g[1]+L+S[1],g[2]+O+S[2]];if(sbr.SPECIAL_BLOCK_IDS.has(Q)){let E=[];for(let U=I[0];U<=D&&s>=sbr.COST_SCAN_DATA;U++)s-=sbr.COST_SCAN_DATA,E.push(api.getBlockData(g[0]+U,g[1]+L,g[2]+O));sbr.buildQueue.splice(1,0,["rect_with_data",P,y,String(Q),E,0])}else sbr.buildQueue.splice(1,0,[P,y,String(Q)])}A.run={startPos:[p,L,O],blockType:B}}if(A.scanPos[0]++,A.scanPos[0]>=k[0]&&(A.scanPos[0]=0,A.scanPos[1]++,A.scanPos[1]>=k[1]&&(A.scanPos[1]=0,A.scanPos[2]++),A.scanPos[2]<k[2]&&(A.run={startPos:[...A.scanPos],blockType:api.getBlockId(g[0],g[1]+A.scanPos[1],g[2]+A.scanPos[2])})),A.scanPos[2]>=k[2]){b=!0;break}}b&&sbr.buildQueue.shift()}else if("rect_with_data"===i[0]){let[w,K,x,R,N,H]=i;0===H&&(api.setBlockRect(K,x,R),s-=sbr.COST_BUILD_RECT);let M=H;for(;s>=sbr.COST_BUILD_DATA&&M<N.length;)s-=sbr.COST_BUILD_DATA,null!==N[M]&&api.setBlockData(K[0]+M,K[1],K[2],N[M]),M++;M>=N.length?sbr.buildQueue.shift():i[5]=M}else if(3===i.length&&Array.isArray(i[0])){let[V,v,G]=i,W=[Math.min(V[0],v[0]),Math.min(V[1],v[1]),Math.min(V[2],v[2])],X=[Math.max(V[0],v[0]),Math.max(V[1],v[1]),Math.max(V[2],v[2])],{dims:j,vol:q}=sbr.getVol(W,X);if(q>sbr.MAX_RECT_VOLUME){let z=j.indexOf(Math.max(...j)),F=W[z]+Math.floor(j[z]/2)-1,J=[...X];J[z]=F;let Y=[...W];Y[z]=F+1,sbr.buildQueue.splice(0,1,[W,J,G],[Y,X,G]),s-=sbr.COST_SPLIT_RECT}else api.setBlockRect(W,X,String(G)),sbr.buildQueue.shift(),s-=sbr.COST_BUILD_RECT}else if(2===i.length&&Array.isArray(i[0]))api.setBlockData(i[0][0],i[0][1],i[0][2],i[1]),sbr.buildQueue.shift(),s-=sbr.COST_BUILD_DATA;else if(4!==i.length||Array.isArray(i[0]))sbr.buildQueue.shift();else{let Z=i[3];"object"==typeof Z&&null!==Z?(api.setBlockData(i[0],i[1],i[2],Z),s-=sbr.COST_BUILD_DATA):(api.setBlock(i[0],i[1],i[2],String(Z)),s-=sbr.COST_BUILD_RECT/10),sbr.buildQueue.shift()}}catch(ee){let et=ee.message?ee.message.toLowerCase():"";if(et.includes("rate limit"))sbr.rateLimitCooldown=5;else if(et.includes("interrupted"))break;else api.log("sbr error: "+ee.message),sbr.buildQueue.shift()}}};
