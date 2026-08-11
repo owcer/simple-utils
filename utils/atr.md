@@ -6,6 +6,7 @@ Add entities to rooms, so only entities within the same room can see each other.
 Useful for simulating multiple rooms in one room, or multiple 1v1 arenas when only 1 exists, for example
 
 `atr(entityId,roomName)`: add an entity to room so it can only see and be seen by whoever else is in the room  
+`atr(entityId,"")`: add an entity to the global/main room (the room they join when they join)  
 `atr.seeAll(entityId,boolean)`: whether an entity should be able to see all entities (for spectators etc)
 
 ```js
